@@ -1,0 +1,8 @@
+# Ignore puzzle inputs
+/inputs
+
+# Ignore target files
+/target
+
+# Ignore temporary vim files
+*.swp
