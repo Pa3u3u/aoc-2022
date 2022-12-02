@@ -36,7 +36,7 @@ fn eval_round(r: &Round) -> usize {
 type Strategy = Vec<Round>;
 
 fn eval_strategy(s: &Strategy) -> usize {
-    s.iter().map(|r| eval_round(r)).sum()
+    s.iter().map(eval_round).sum()
 }
 
 fn parse_shape(part: &str) -> Option<Shape> {
@@ -63,7 +63,7 @@ fn read_line<T>(lines: &mut Lines<T>) -> Option<String>
 }
 
 fn read_parts(line: &str) -> Option<(&str, &str)> {
-    let parts: Vec<&str> = line.split(" ").collect();
+    let parts: Vec<&str> = line.split(' ').collect();
 
     if parts.len() != 2 {
         panic!("Invalid input");
@@ -73,7 +73,7 @@ fn read_parts(line: &str) -> Option<(&str, &str)> {
 }
 
 fn read_round_1(line: &str) -> Option<Round> {
-    let (sl, sr) = read_parts(&line)?;
+    let (sl, sr) = read_parts(line)?;
 
     let left = parse_shape(sl);
     let right = parse_shape(sr);
@@ -83,7 +83,7 @@ fn read_round_1(line: &str) -> Option<Round> {
 
 fn find_match(left: &Shape, expected: &MatchResult) -> Shape {
     for shape in [Shape::Rock, Shape::Paper, Shape::Scissors] {
-        if cmp_round(&left, &shape) == *expected {
+        if cmp_round(left, &shape) == *expected {
             return shape;
         }
     }
@@ -92,7 +92,7 @@ fn find_match(left: &Shape, expected: &MatchResult) -> Shape {
 }
 
 fn read_round_2(line: &str) -> Option<Round> {
-    let (sl, sr) = read_parts(&line)?;
+    let (sl, sr) = read_parts(line)?;
 
     let left = parse_shape(sl)?;
     let expected = parse_result(sr)?;
