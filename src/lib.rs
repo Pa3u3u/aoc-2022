@@ -1,2 +1,2 @@
 pub mod aoc;
-pub use aoc::args;
+pub use crate::aoc::args;
