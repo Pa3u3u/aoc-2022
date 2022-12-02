@@ -117,10 +117,12 @@ fn main() -> IOResult<()> {
     let args = aoc::args::Arguments::parse();
     let file = File::open(args.file_name)?;
 
-    println!("{}", eval_strategy(&match args.puzzle {
-        Puzzle::P1 => read_strategy(&file, &read_round_1),
-        Puzzle::P2 => read_strategy(&file, &read_round_2),
-    }));
+    println!("{}", eval_strategy(&read_strategy(&file,
+        &match args.puzzle {
+            Puzzle::P1 => read_round_1,
+            Puzzle::P2 => read_round_2,
+        }
+    )));
 
     Ok(())
 }
