@@ -151,16 +151,6 @@ mod test {
         assert_eq!(super::eval_letter(&'Z'), 52);
     }
 
-    #[test]
-    fn common_chars() {
-        assert_eq!(build("vJrwpWtwJgWrhcsFMMfFFhFp").common(), letters("p"));
-        assert_eq!(build("jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL").common(), letters("L"));
-        assert_eq!(build("PmmdzqPrVvPwwTWBwg").common(), letters("P"));
-        assert_eq!(build("wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn").common(), letters("v"));
-        assert_eq!(build("ttgJtRGJQctTZtZT").common(), letters("t"));
-        assert_eq!(build("CrZsJsPPZsGzwwsLwLmpwMDw").common(), letters("s"));
-    }
-
     fn rucksacks() -> Vec<Rucksack> {
         vec![
             "vJrwpWtwJgWrhcsFMMfFFhFp",
@@ -170,6 +160,17 @@ mod test {
             "ttgJtRGJQctTZtZT",
             "CrZsJsPPZsGzwwsLwLmpwMDw",
         ].iter().map(|s| build(s)).collect::<Vec<Rucksack>>()
+    }
+
+    #[test]
+    fn common_chars() {
+        let rucksacks = rucksacks();
+        assert_eq!(rucksacks[0].common(), letters("p"));
+        assert_eq!(rucksacks[1].common(), letters("L"));
+        assert_eq!(rucksacks[2].common(), letters("P"));
+        assert_eq!(rucksacks[3].common(), letters("v"));
+        assert_eq!(rucksacks[4].common(), letters("t"));
+        assert_eq!(rucksacks[5].common(), letters("s"));
     }
 
     #[test]
@@ -185,5 +186,11 @@ mod test {
         assert_eq!(groups.len(), 2);
         assert_eq!(find_badge(&groups[0]).expect("find_badge()"), 'r');
         assert_eq!(find_badge(&groups[1]).expect("find_badge()"), 'Z');
+    }
+
+    #[test]
+    fn p2_total() {
+        let rucksacks = rucksacks();
+        assert_eq!(count_badges(&rucksacks).expect("count_badges()"), 70);
     }
 }
