@@ -46,10 +46,10 @@ impl Rucksack {
 
 fn eval_letter(c: &char) -> u32 {
     if c.is_ascii_lowercase() {
-        return u32::from(*c) - u32::from('a') + 1;
+        u32::from(*c) - u32::from('a') + 1
+    } else {
+        u32::from(*c) - u32::from('A') + 27
     }
-
-    u32::from(*c) - u32::from('A') + 27
 }
 
 fn read_rucksacks(file: &File) -> Result<Vec<Rucksack>, &'static str> {
