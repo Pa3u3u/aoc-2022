@@ -1,7 +1,7 @@
 use aoc::args::Puzzle;
 use std::collections::HashSet as Set;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Error, ErrorKind};
 use std::io::Result as IOResult;
 
 #[derive(Debug)]
@@ -40,7 +40,7 @@ impl Rucksack {
     }
 
     pub fn common(&self) -> Set<char> {
-        self.parts[0].intersection(&self.parts[1]).map(|x| x.clone()).collect()
+        self.parts[0].intersection(&self.parts[1]).copied().collect()
     }
 }
 
@@ -49,7 +49,7 @@ fn eval_letter(c: &char) -> u32 {
         return u32::from(*c) - u32::from('a') + 1;
     }
 
-    return u32::from(*c) - u32::from('A') + 27;
+    u32::from(*c) - u32::from('A') + 27
 }
 
 fn read_rucksacks(file: &File) -> Result<Vec<Rucksack>, &'static str> {
@@ -63,8 +63,50 @@ fn read_rucksacks(file: &File) -> Result<Vec<Rucksack>, &'static str> {
     Ok(rucksacks)
 }
 
-fn rucksacks_value(rs: &Vec<Rucksack>) -> u32 {
+fn rucksacks_value(rs: &[Rucksack]) -> u32 {
     rs.iter().map(|r| r.common().iter().map(eval_letter).sum::<u32>()).sum()
+}
+
+struct Group<'a> {
+    rucksacks: Vec<&'a Rucksack>,
+}
+
+fn create_groups(rs: &Vec<Rucksack>) -> Result<Vec<Group>, &'static str> {
+    if rs.len() % 3 != 0 {
+        return Err("Invalid number of rucksacks");
+    }
+
+    let mut result = Vec::new();
+    for w in rs.chunks(3) {
+        let group = Group {
+            rucksacks: w.iter().collect(),
+        };
+
+        result.push(group);
+    }
+
+    Ok(result)
+}
+
+fn find_badge(group: &Group) -> Result<char, &'static str> {
+    let common = group.rucksacks.iter()
+        .map(|r| r.parts[0].union(&r.parts[1]).copied().collect::<Set<char>>())
+        .reduce(|a, m| a.intersection(&m).copied().collect())
+        .ok_or("BUG: No intersection found")?;
+
+    if common.len() > 1 {
+        return Err("Too many badges found");
+    }
+
+    common.iter().next().copied().ok_or("No badge found")
+}
+
+fn count_badges(rs: &Vec<Rucksack>) -> Result<u32, &'static str> {
+    let groups = create_groups(rs)?;
+    let badges = groups.iter().filter_map(|g| find_badge(g).ok())
+        .map(|p| eval_letter(&p));
+
+    Ok(badges.sum())
 }
 
 fn main() -> IOResult<()> {
@@ -75,7 +117,8 @@ fn main() -> IOResult<()> {
 
     match args.puzzle {
         Puzzle::P1 => println!("{}", rucksacks_value(&rucksacks)),
-        Puzzle::P2 => todo!(),
+        Puzzle::P2 => println!("{}",
+                count_badges(&rucksacks).map_err(|e| Error::new(ErrorKind::Other, e))?),
     }
 
     Ok(())
@@ -113,17 +156,29 @@ mod test {
         assert_eq!(build("CrZsJsPPZsGzwwsLwLmpwMDw").common(), letters("s"));
     }
 
-    #[test]
-    fn p1_total() {
-        let rucksacks = vec![
+    fn rucksacks() -> Vec<Rucksack> {
+        vec![
             "vJrwpWtwJgWrhcsFMMfFFhFp",
             "jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL",
             "PmmdzqPrVvPwwTWBwg",
             "wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn",
             "ttgJtRGJQctTZtZT",
             "CrZsJsPPZsGzwwsLwLmpwMDw",
-        ].iter().map(|s| build(s)).collect();
+        ].iter().map(|s| build(s)).collect::<Vec<Rucksack>>()
+    }
 
+    #[test]
+    fn p1_total() {
+        let rucksacks = rucksacks();
         assert_eq!(rucksacks_value(&rucksacks), 157);
+    }
+
+    #[test]
+    fn p2_example1() {
+        let rucksacks = rucksacks();
+        let groups = create_groups(&rucksacks).expect("Cannot create group");
+        assert_eq!(groups.len(), 2);
+        assert_eq!(find_badge(&groups[0]).expect("find_badge()"), 'r');
+        assert_eq!(find_badge(&groups[1]).expect("find_badge()"), 'Z');
     }
 }
