@@ -1,8 +1,8 @@
 use aoc::args::Puzzle;
 use std::collections::HashSet as Set;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Error, ErrorKind};
 use std::io::Result as IOResult;
+use std::io::{BufRead, BufReader, Error, ErrorKind};
 
 #[derive(Debug)]
 struct Rucksack {
@@ -24,7 +24,7 @@ impl Rucksack {
         Ok(())
     }
 
-    pub fn from_str(s: &str) -> Result<Rucksack, &'static str>  {
+    pub fn from_str(s: &str) -> Result<Rucksack, &'static str> {
         Rucksack::_check_str(s)?;
 
         let mut rucksack: Rucksack = Rucksack {
@@ -90,8 +90,12 @@ fn create_groups(rs: &Vec<Rucksack>) -> Result<Vec<Group>, &'static str> {
 
 fn find_badge(group: &Group) -> Result<char, &'static str> {
     let common = group.rucksacks.iter()
-        .map(|r| r.parts[0].union(&r.parts[1]).copied().collect::<Set<char>>())
-        .reduce(|a, m| a.intersection(&m).copied().collect())
+        .map(|r| r.parts[0].union(&r.parts[1])
+                .copied()
+                .collect::<Set<char>>())
+        .reduce(|a, m| a.intersection(&m)
+                .copied()
+                .collect())
         .ok_or("BUG: No intersection found")?;
 
     if common.len() > 1 {
@@ -103,8 +107,9 @@ fn find_badge(group: &Group) -> Result<char, &'static str> {
 
 fn count_badges(rs: &Vec<Rucksack>) -> Result<u32, &'static str> {
     let groups = create_groups(rs)?;
-    let badges = groups.iter().filter_map(|g| find_badge(g).ok())
-        .map(|p| eval_letter(&p));
+    let badges = groups.iter()
+            .filter_map(|g| find_badge(g).ok())
+            .map(|p| eval_letter(&p));
 
     Ok(badges.sum())
 }
@@ -117,8 +122,8 @@ fn main() -> IOResult<()> {
 
     match args.puzzle {
         Puzzle::P1 => println!("{}", rucksacks_value(&rucksacks)),
-        Puzzle::P2 => println!("{}",
-                count_badges(&rucksacks).map_err(|e| Error::new(ErrorKind::Other, e))?),
+        Puzzle::P2 => println!("{}", count_badges(&rucksacks)
+                               .map_err(|e| Error::new(ErrorKind::Other, e))?),
     }
 
     Ok(())
