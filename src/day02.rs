@@ -1,7 +1,7 @@
 use aoc::args::Puzzle;
 use std::fs::File;
 use std::io::Result as IOResult;
-use std::io::{BufRead, BufReader, Lines};
+use std::io::{BufRead, BufReader};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Shape {
@@ -57,11 +57,6 @@ fn parse_result(part: &str) -> Option<MatchResult> {
     }
 }
 
-fn read_line<T>(lines: &mut Lines<T>) -> Option<String>
-        where T: BufRead {
-    Some(lines.next()?.expect("Cannot read line"))
-}
-
 fn read_parts(line: &str) -> Option<(&str, &str)> {
     let parts: Vec<&str> = line.split(' ').collect();
 
@@ -104,7 +99,7 @@ fn read_strategy(file: &File, reader: &dyn Fn(&str) -> Option<Round>) -> Strateg
     let mut lines = BufReader::new(file).lines();
     let mut strategy = Strategy::new();
 
-    while let Some(line) = read_line(&mut lines) {
+    while let Some(line) = aoc::io::read_line(&mut lines) {
         if let Some(round) = reader(&line) {
             strategy.push(round);
         }
