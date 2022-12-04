@@ -130,7 +130,7 @@ fn main() -> IOResult<()> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     fn build(s: &str) -> Rucksack {

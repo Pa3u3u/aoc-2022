@@ -59,7 +59,7 @@ fn main() -> IOResult<()> {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     fn example1() -> Expedition {
