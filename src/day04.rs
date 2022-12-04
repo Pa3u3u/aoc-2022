@@ -16,8 +16,17 @@ impl Assign {
         Assign { start, end }
     }
 
+    pub fn contains_section(&self, num: u32) -> bool {
+        self.start <= num && num <= self.end
+    }
+
     pub fn contains(&self, other: &Self) -> bool {
-        self.start <= other.start && self.end >= other.end
+        self.contains_section(other.start) && self.contains_section(other.end)
+    }
+
+    pub fn overlaps(&self, other: &Self) -> bool {
+        self.contains_section(other.start) || self.contains_section(other.end)
+            || other.contains(self)
     }
 }
 
@@ -48,6 +57,10 @@ impl AssignPair {
         self.elves[0].contains(&self.elves[1])
             || self.elves[1].contains(&self.elves[0])
     }
+
+    fn has_overlap(&self) -> bool {
+        self.elves[0].overlaps(&self.elves[1])
+    }
 }
 
 impl FromStr for AssignPair {
@@ -69,8 +82,12 @@ impl FromStr for AssignPair {
     }
 }
 
-fn count_overlaps(pairs: &[AssignPair]) -> usize {
+fn count_complete_overlaps(pairs: &[AssignPair]) -> usize {
     pairs.iter().filter(|p| p.has_complete_overlap()).count()
+}
+
+fn count_overlaps(pairs: &[AssignPair]) -> usize {
+    pairs.iter().filter(|p| p.has_overlap()).count()
 }
 
 fn read_pairs(file: &File) -> Result<Vec<AssignPair>, &'static str> {
@@ -91,8 +108,8 @@ fn main() -> IOResult<()> {
     let pairs = read_pairs(&file).expect("Cannot read rucksacks");
 
     match args.puzzle {
-        Puzzle::P1 => println!("{}", count_overlaps(&pairs)),
-        Puzzle::P2 => todo!(),
+        Puzzle::P1 => println!("{}", count_complete_overlaps(&pairs)),
+        Puzzle::P2 => println!("{}", count_overlaps(&pairs)),
     }
 
     Ok(())
@@ -132,19 +149,36 @@ mod tests {
     }
 
     #[test]
-    fn overlaps() {
+    fn complete_overlaps() {
         let pairs = pairs();
-        assert!(pairs[0].has_overlap());
-        assert!(pairs[1].has_overlap());
+        assert!(pairs[0].has_complete_overlap());
+        assert!(pairs[1].has_complete_overlap());
 
-        assert!(!pairs[2].has_overlap());
-        assert!(!pairs[3].has_overlap());
-        assert!(!pairs[4].has_overlap());
-        assert!(!pairs[5].has_overlap());
+        assert!(!pairs[2].has_complete_overlap());
+        assert!(!pairs[3].has_complete_overlap());
+        assert!(!pairs[4].has_complete_overlap());
+        assert!(!pairs[5].has_complete_overlap());
     }
 
     #[test]
     fn p1_example() {
-        assert_eq!(count_overlaps(&pairs()), 2);
+        assert_eq!(count_complete_overlaps(&pairs()), 2);
+    }
+
+    #[test]
+    fn partial_overlaps() {
+        let pairs = pairs();
+        assert!(pairs[0].has_overlap());
+        assert!(pairs[1].has_overlap());
+        assert!(pairs[4].has_overlap());
+        assert!(pairs[5].has_overlap());
+
+        assert!(!pairs[2].has_overlap());
+        assert!(!pairs[3].has_overlap());
+    }
+
+    #[test]
+    fn p2_example() {
+        assert_eq!(count_overlaps(&pairs()), 4);
     }
 }
