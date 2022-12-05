@@ -290,4 +290,20 @@ mod tests {
         rp.run::<CrateMover9000>().expect("Plan failed");
         assert_eq!(rp.ship.top_str().expect("Cannot get top row"), "CMZ");
     }
+
+    #[test]
+    fn p2_complete_plan() {
+        let mut rp = RearrProc {
+            ship: example_ship(),
+            plan: [
+                Instruction::new(1, 0, 1),
+                Instruction::new(0, 2, 3),
+                Instruction::new(1, 0, 2),
+                Instruction::new(0, 1, 1),
+            ].into(),
+        };
+
+        rp.run::<CrateMover9001>().expect("Plan failed");
+        assert_eq!(rp.ship.top_str().expect("Cannot get top row"), "MCD");
+    }
 }
