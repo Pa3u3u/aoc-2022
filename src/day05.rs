@@ -6,18 +6,19 @@ use std::fs::File;
 use std::io::Result as IOResult;
 use std::io::{BufRead, BufReader, Lines};
 use std::str::FromStr;
+use std::cell::RefCell;
 
 type Stack = Vec<char>;
 
 #[derive(Clone)]
 struct Ship {
-    crates: Vec<Stack>,
+    crates: Vec<RefCell<Stack>>,
 }
 
 impl Ship {
     pub fn top(&self) -> Result<Vec<char>, &'static str> {
         let chars = self.crates.iter()
-            .map(|vec| vec.last().ok_or("Cargo stack is empty").map(|c| *c));
+            .map(|vec| vec.borrow().last().ok_or("Cargo stack is empty").map(|c| *c));
 
         chars.collect()
     }
@@ -69,24 +70,56 @@ struct RearrProc {
     plan: VecDeque<Instruction>,
 }
 
-impl RearrProc {
-    fn exec(&mut self, instr: &Instruction) -> Result<(), &'static str> {
+trait CrateMover {
+    fn exec(stacks: &mut Vec<RefCell<Stack>>, instr: &Instruction)
+        -> Result<(), &'static str>;
+}
+
+struct CrateMover9000;
+
+impl CrateMover for CrateMover9000 {
+    fn exec(stacks: &mut Vec<RefCell<Stack>>, instr: &Instruction)
+            -> Result<(), &'static str> {
         if instr.src == instr.dst || instr.count == 0 {
             return Ok(());
         }
 
         for _ in 0 .. instr.count {
-            let cargo = self.ship.crates[instr.src].pop()
+            let cargo = stacks[instr.src].borrow_mut().pop()
                             .ok_or("Source stack is empty")?;
-            self.ship.crates[instr.dst].push(cargo);
+            stacks[instr.dst].borrow_mut().push(cargo);
         }
 
         Ok(())
     }
+}
 
-    pub fn run(&mut self) -> Result<(), &'static str> {
+struct CrateMover9001;
+
+impl CrateMover for CrateMover9001 {
+    fn exec(stacks: &mut Vec<RefCell<Stack>>, instr: &Instruction)
+            -> Result<(), &'static str> {
+        if instr.src == instr.dst || instr.count == 0 {
+            return Ok(());
+        }
+
+        // Condition ‹instr.src ≠ instr.dst› is guaranteed above.
+        let mut src = stacks[instr.src].borrow_mut();
+        let mut dst = stacks[instr.dst].borrow_mut();
+
+        let skip = src.len() - instr.count as usize;
+        let it = src.iter().skip(skip);
+        dst.extend(it);
+        src.truncate(skip);
+
+        Ok(())
+    }
+}
+
+impl RearrProc {
+    pub fn run<CM: CrateMover>(&mut self) -> Result<(), &'static str> {
         while let Some(instr) = self.plan.pop_front() {
-            self.exec(&instr)?;
+            CM::exec(&mut self.ship.crates, &instr)?;
         }
 
         Ok(())
@@ -167,7 +200,7 @@ fn read_ship<T>(lines: &mut Lines<T>) -> Result<Ship, &'static str>
         }
     }
 
-    let crates = parts.iter().map(|p| p.iter().copied().collect()).collect();
+    let crates = parts.iter().map(|p| RefCell::new(p.iter().copied().collect())).collect();
     Ok(Ship { crates })
 }
 
@@ -197,13 +230,11 @@ fn main() -> IOResult<()> {
     let mut procedure = read_procedure(&file).expect("Cannot read procedure");
 
     match args.puzzle {
-        Puzzle::P1 => {
-            procedure.run().expect("Failed to run the procedure");
-            println!("{}", procedure.ship.top_str().expect("Cannot get top string"));
-        }
+        Puzzle::P1 => procedure.run::<CrateMover9000>(),
+        Puzzle::P2 => procedure.run::<CrateMover9001>(),
+    }.expect("Failed to run the procedure");
 
-        Puzzle::P2 => todo!(),
-    }
+    println!("{}", procedure.ship.top_str().expect("Cannot get top string"));
 
     Ok(())
 }
@@ -212,12 +243,16 @@ fn main() -> IOResult<()> {
 mod tests {
     use super::*;
 
+    fn stack_from_str(s: &str) -> RefCell<Stack> {
+        s.chars().collect::<Vec<char>>().into()
+    }
+
     fn example_ship() -> Ship {
         Ship {
             crates: vec![
-                "ZN".chars().collect(),
-                "MCD".chars().collect(),
-                "P".chars().collect(),
+                stack_from_str("ZN"),
+                stack_from_str("MCD"),
+                stack_from_str("P"),
             ],
         }
     }
@@ -236,7 +271,7 @@ mod tests {
             plan: [Instruction::new(1, 0, 1)].into(),
         };
 
-        rp.run().expect("Plan failed");
+        rp.run::<CrateMover9000>().expect("Plan failed");
         assert_eq!(rp.ship.top_str().expect("Cannot get top row"), "DCP");
     }
 
@@ -252,7 +287,7 @@ mod tests {
             ].into(),
         };
 
-        rp.run().expect("Plan failed");
+        rp.run::<CrateMover9000>().expect("Plan failed");
         assert_eq!(rp.ship.top_str().expect("Cannot get top row"), "CMZ");
     }
 }
