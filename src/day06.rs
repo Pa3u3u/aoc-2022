@@ -60,9 +60,19 @@ mod tests {
 
     #[test]
     fn p1_examples() {
+        assert_eq!(sig("mjqjpqmgbljsphdztnvjfqwrcgsmlb").start(4), Some(7));
         assert_eq!(sig("bvwbjplbgvbhsrlpgdmjqwftvncz").start(4), Some(5));
         assert_eq!(sig("nppdvjthqldpwncqszvftbrmjlhg").start(4), Some(6));
         assert_eq!(sig("nznrnfrfntjfmvfwmzdfjlvtqnbhcprsg").start(4), Some(10));
         assert_eq!(sig("zcfzfwzzqfrljwzlrfnpqdbhtmscgvjw").start(4), Some(11));
+    }
+
+    #[test]
+    fn p2_examples() {
+        assert_eq!(sig("mjqjpqmgbljsphdztnvjfqwrcgsmlb").start(14), Some(19));
+        assert_eq!(sig("bvwbjplbgvbhsrlpgdmjqwftvncz").start(14), Some(23));
+        assert_eq!(sig("nppdvjthqldpwncqszvftbrmjlhg").start(14), Some(23));
+        assert_eq!(sig("nznrnfrfntjfmvfwmzdfjlvtqnbhcprsg").start(14), Some(29));
+        assert_eq!(sig("zcfzfwzzqfrljwzlrfnpqdbhtmscgvjw").start(14), Some(26));
     }
 }
