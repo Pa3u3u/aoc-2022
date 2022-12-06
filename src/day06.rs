@@ -44,7 +44,7 @@ fn main() -> IOResult<()> {
 
     match args.puzzle {
         Puzzle::P1 => println!("{}", signal.start(4).expect("No signal start found")),
-        Puzzle::P2 => todo!(),
+        Puzzle::P2 => println!("{}", signal.start(14).expect("No message start found")),
     }
 
     Ok(())
