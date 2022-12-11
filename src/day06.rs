@@ -11,7 +11,7 @@ impl FromStr for Signal {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Signal { 0: s.chars().collect() })
+        Ok(Signal(s.chars().collect()))
     }
 }
 
@@ -33,7 +33,7 @@ fn read_signal(file: &File) -> Result<Signal, &'static str> {
     let mut lines = BufReader::new(file).lines();
 
     let line = aoc::io::read_line(&mut lines).ok_or("No line")?;
-    Ok(line.parse()?)
+    line.parse()
 }
 
 fn main() -> IOResult<()> {
