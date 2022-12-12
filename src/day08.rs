@@ -1,5 +1,6 @@
 use aoc::args::Puzzle;
 use std::cmp::max;
+use std::collections::BinaryHeap;
 use std::fs::File;
 use std::io::Result as IOResult;
 use std::io::{BufRead, BufReader};
@@ -13,15 +14,69 @@ enum Direction {
     East,
 }
 
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
-struct Point {
-    x: usize,
-    y: usize,
+struct DirectionIterator {
+    view: &'static [Direction],
 }
 
+impl DirectionIterator {
+    const ORDER: [Direction; 4] = [
+        Direction::North,
+        Direction::West,
+        Direction::South,
+        Direction::East,
+    ];
+
+    pub fn new() -> Self {
+        Self { view: &Self::ORDER }
+    }
+}
+
+impl Iterator for DirectionIterator {
+    type Item = Direction;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.view.is_empty() {
+            return None;
+        }
+
+        let rv = self.view.first().copied();
+        self.view = &self.view[1..];
+        rv
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+struct Obj2D<T> {
+    x: T,
+    y: T,
+}
+
+impl<T> Obj2D<T> {
+    pub fn new(x: T, y: T) -> Self {
+        Self { x, y }
+    }
+}
+
+type Point = Obj2D<usize>;
+type Vector = Obj2D<isize>;
+
 impl Point {
-    pub fn new(x: usize, y: usize) -> Point {
-        Point { x, y }
+    pub fn shift(&self, v: &Vector) -> Self {
+        Self::new(
+            (self.x as isize + v.x) as usize,
+            (self.y as isize + v.y) as usize,
+        )
+    }
+}
+
+impl From<&Direction> for Vector {
+    fn from(d: &Direction) -> Vector {
+        match d {
+            Direction::North => Vector::new(0, -1),
+            Direction::South => Vector::new(0, 1),
+            Direction::East => Vector::new(1, 0),
+            Direction::West => Vector::new(-1, 0),
+        }
     }
 }
 
@@ -34,7 +89,7 @@ struct CoordGenerator {
 
 impl CoordGenerator {
     pub fn new(dir: &Direction, width: usize, height: usize) -> CoordGenerator {
-        CoordGenerator {
+        Self {
             dir: *dir,
             cursor: 0,
             limit: [width as isize, height as isize],
@@ -87,26 +142,6 @@ struct Matrix<T: Default + Ord> {
 type Map = Matrix<u32>;
 type BitLayer = Matrix<bool>;
 
-trait CellDisplay<T: Sized> {
-    fn show(v: &T) -> String;
-}
-
-struct NumericDisplay;
-
-impl CellDisplay<u32> for NumericDisplay {
-    fn show(v: &u32) -> String {
-        v.to_string()
-    }
-}
-
-struct BitDisplay;
-
-impl CellDisplay<bool> for BitDisplay {
-    fn show(v: &bool) -> String {
-        if *v { "•".to_string() } else { "◦".to_string() }
-    }
-}
-
 impl<T> Matrix<T>
         where T: Default + Ord {
     pub fn new(width: usize, height: usize) -> Matrix<T> {
@@ -118,7 +153,7 @@ impl<T> Matrix<T>
             vi
         });
 
-        Matrix { width, height, data }
+        Self { width, height, data }
     }
 
     pub fn fold<F: Fn(&T, &T) -> T>(a: &Self, b: &Self, f: F) -> Self {
@@ -131,17 +166,6 @@ impl<T> Matrix<T>
         }
 
         result
-    }
-
-    pub fn print<P: CellDisplay<T>>(&self) {
-        for row in &self.data {
-            print!("[");
-            for cell in row {
-                print!(" {}", P::show(cell))
-            }
-
-            println!(" ]");
-        }
     }
 }
 
@@ -181,19 +205,52 @@ impl Map {
         layer
     }
 
-    fn elevated_points(&self) -> usize {
-        let dirs = [
-            Direction::North,
-            Direction::South,
-            Direction::East,
-            Direction::West,
-        ];
-
-        dirs.iter()
-            .map(|dir| self.layer(dir))
+    pub fn elevated_points(&self) -> usize {
+        DirectionIterator::new()
+            .map(|dir| self.layer(&dir))
             .fold(BitLayer::new(self.width, self.height),
                     |acc, el| BitLayer::or(&acc, &el))
             .bits(true)
+    }
+
+    fn is_border(&self, coord: &Point) -> bool {
+        coord.x == 0 || coord.y == 0
+            || coord.x + 1 == self.width || coord.y + 1 == self.height
+    }
+
+    fn scenic_ray(&self, coord: &Point, v: &Vector) -> usize {
+        if self.is_border(coord) {
+            return 0;
+        }
+
+        let elev = self[*coord];
+        let mut cursor: Point = *coord;
+
+        let mut count: usize = 0;
+        while !self.is_border(&cursor) && (cursor == *coord || self[cursor] < elev) {
+            count += 1;
+            cursor = cursor.shift(v);
+        }
+
+        count
+    }
+
+    fn scenic_scores(&self) -> usize {
+        let mut heap: BinaryHeap<usize> = BinaryHeap::new();
+
+        for coord in CoordGenerator::new(&Direction::North, self.width, self.height) {
+            heap.push(
+                DirectionIterator::new()
+                    .map(|d| self.scenic_ray(&coord, &Vector::from(&d)))
+                    .product(),
+            );
+
+            if heap.len() > 1000 {
+                heap.shrink_to(100);
+            }
+        }
+
+        heap.pop().expect("No elements found")
     }
 }
 
@@ -257,10 +314,10 @@ fn main() -> IOResult<()> {
 
     let map = read_map(&file).expect("Cannot read input");
 
-    match args.puzzle {
-        Puzzle::P1 => println!("{}", map.elevated_points()),
-        Puzzle::P2 => todo!(),
-    }
+    println!("{}", match args.puzzle {
+        Puzzle::P1 => map.elevated_points(),
+        Puzzle::P2 => map.scenic_scores(),
+    });
 
     Ok(())
 }
@@ -269,26 +326,30 @@ fn main() -> IOResult<()> {
 mod tests {
     use super::*;
 
+    fn pt(x: usize, y: usize) -> Option<Point> {
+        Some(Point::new(x, y))
+    }
+
     #[test]
     fn gen_east() {
         let mut g = CoordGenerator::new(&Direction::East, 3, 2);
-        assert_eq!(g.next(), Some((0, 0)));
-        assert_eq!(g.next(), Some((1, 0)));
-        assert_eq!(g.next(), Some((2, 0)));
-        assert_eq!(g.next(), Some((0, 1)));
-        assert_eq!(g.next(), Some((1, 1)));
-        assert_eq!(g.next(), Some((2, 1)));
+        assert_eq!(g.next(), pt(0, 0));
+        assert_eq!(g.next(), pt(1, 0));
+        assert_eq!(g.next(), pt(2, 0));
+        assert_eq!(g.next(), pt(0, 1));
+        assert_eq!(g.next(), pt(1, 1));
+        assert_eq!(g.next(), pt(2, 1));
     }
 
     #[test]
     fn gen_north() {
         let mut g = CoordGenerator::new(&Direction::North, 3, 2);
-        assert_eq!(g.next(), Some((2, 1)));
-        assert_eq!(g.next(), Some((2, 0)));
-        assert_eq!(g.next(), Some((1, 1)));
-        assert_eq!(g.next(), Some((1, 0)));
-        assert_eq!(g.next(), Some((0, 1)));
-        assert_eq!(g.next(), Some((0, 0)));
+        assert_eq!(g.next(), pt(2, 1));
+        assert_eq!(g.next(), pt(2, 0));
+        assert_eq!(g.next(), pt(1, 1));
+        assert_eq!(g.next(), pt(1, 0));
+        assert_eq!(g.next(), pt(0, 1));
+        assert_eq!(g.next(), pt(0, 0));
     }
 
     fn example_matrix() -> Map {
@@ -307,6 +368,11 @@ mod tests {
 
     #[test]
     fn example1() {
-        println!("{}", example_matrix().elevated_points());
+        assert_eq!(example_matrix().elevated_points(), 21);
+    }
+
+    #[test]
+    fn example2() {
+        assert_eq!(example_matrix().scenic_scores(), 8);
     }
 }
