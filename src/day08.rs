@@ -1,84 +1,11 @@
 use aoc::args::Puzzle;
+use aoc::euclid::{Direction, DirectionIterator, Point, Vector};
 use std::cmp::max;
 use std::collections::BinaryHeap;
 use std::fs::File;
 use std::io::Result as IOResult;
 use std::io::{BufRead, BufReader};
 use std::ops::{Index, IndexMut};
-
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
-enum Direction {
-    North,
-    West,
-    South,
-    East,
-}
-
-struct DirectionIterator {
-    view: &'static [Direction],
-}
-
-impl DirectionIterator {
-    const ORDER: [Direction; 4] = [
-        Direction::North,
-        Direction::West,
-        Direction::South,
-        Direction::East,
-    ];
-
-    pub fn new() -> Self {
-        Self { view: &Self::ORDER }
-    }
-}
-
-impl Iterator for DirectionIterator {
-    type Item = Direction;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.view.is_empty() {
-            return None;
-        }
-
-        let rv = self.view.first().copied();
-        self.view = &self.view[1..];
-        rv
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Copy, Clone)]
-struct Obj2D<T> {
-    x: T,
-    y: T,
-}
-
-impl<T> Obj2D<T> {
-    pub fn new(x: T, y: T) -> Self {
-        Self { x, y }
-    }
-}
-
-type Point = Obj2D<usize>;
-type Vector = Obj2D<isize>;
-
-impl Point {
-    pub fn shift(&self, v: &Vector) -> Self {
-        Self::new(
-            (self.x as isize + v.x) as usize,
-            (self.y as isize + v.y) as usize,
-        )
-    }
-}
-
-impl From<&Direction> for Vector {
-    fn from(d: &Direction) -> Vector {
-        match d {
-            Direction::North => Vector::new(0, -1),
-            Direction::South => Vector::new(0, 1),
-            Direction::East => Vector::new(1, 0),
-            Direction::West => Vector::new(-1, 0),
-        }
-    }
-}
 
 #[derive(Debug)]
 struct CoordGenerator {
@@ -128,7 +55,7 @@ impl Iterator for CoordGenerator {
             Direction::East => (self._fx(cursor, 0), self._fy(cursor, 0)),
         };
 
-        Some(Point::new(x as usize, y as usize))
+        Some(Point::new(x, y))
     }
 }
 
@@ -173,20 +100,20 @@ impl<T: Default + Ord> Index<Point> for Matrix<T> {
     type Output = T;
 
     fn index(&self, index: Point) -> &Self::Output {
-        &self.data[index.y][index.x]
+        &self.data[index.y as usize][index.x as usize]
     }
 }
 
 impl<T: Default + Ord> IndexMut<Point> for Matrix<T> {
     fn index_mut(&mut self, index: Point) -> &mut Self::Output {
-        &mut self.data[index.y][index.x]
+        &mut self.data[index.y as usize][index.x as usize]
     }
 }
 
 impl Map {
     fn layer(&self, dir: &Direction) -> BitLayer {
         let mut layer = BitLayer::new(self.width, self.height);
-        let mut last = Point::new(usize::MAX, usize::MAX);
+        let mut last = Point::new(-1, -1);
         let mut max_elevation = 0;
 
         for coord in CoordGenerator::new(dir, self.width, self.height) {
@@ -215,7 +142,8 @@ impl Map {
 
     fn is_border(&self, coord: &Point) -> bool {
         coord.x == 0 || coord.y == 0
-            || coord.x + 1 == self.width || coord.y + 1 == self.height
+            || coord.x + 1 == self.width as isize
+            || coord.y + 1 == self.height as isize
     }
 
     fn scenic_ray(&self, coord: &Point, v: &Vector) -> usize {
@@ -326,7 +254,7 @@ fn main() -> IOResult<()> {
 mod tests {
     use super::*;
 
-    fn pt(x: usize, y: usize) -> Option<Point> {
+    fn pt(x: isize, y: isize) -> Option<Point> {
         Some(Point::new(x, y))
     }
 
