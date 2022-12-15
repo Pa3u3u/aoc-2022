@@ -7,10 +7,9 @@ use std::io::Result as IOResult;
 use std::io::{BufRead, BufReader};
 use std::str::FromStr;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq)]
 struct Rope {
-    head: Point,
-    tail: Point,
+    knots: Vec<Point>,
 }
 
 fn points_are_near(a: &Point, b: &Point) -> bool {
@@ -18,26 +17,53 @@ fn points_are_near(a: &Point, b: &Point) -> bool {
 }
 
 impl Rope {
-    fn new(init: Point) -> Self {
-        Self { head: init, tail: init }
+    fn new(init: &Point, size: usize) -> Self {
+        assert!(size > 0);
+
+        let mut knots = Vec::with_capacity(size);
+        knots.resize(size, *init);
+
+        Self { knots }
     }
 
-    fn walk_tail(&self, nh: &Point) -> Point {
-        if points_are_near(nh, &self.tail) {
-            return self.tail;
+    fn _walk_axis(k: isize, n: isize) -> isize {
+        match (k - n).abs() {
+            2 => (k + n) / 2,
+            1 | 0 => n,
+            _ => panic!("BUG: Distance over 2 should never happen"),
+        }
+    }
+
+    fn _walk_knot(knot: &Point, new_neigh: &Point) -> Point {
+        if points_are_near(knot, new_neigh) {
+            return *knot;
         }
 
-        self.head
+        Point::new(Self::_walk_axis(knot.x, new_neigh.x),
+                    Self::_walk_axis(knot.y, new_neigh.y))
+    }
+
+    fn tail(&self) -> &Point {
+        self.knots.last().expect("BUG: Non-empty vector is empty")
     }
 
     /* 'move' is a keyword in Rust /o\ */
-    fn walk(&self, direction: Direction) -> Self {
+    fn walk(&mut self, direction: Direction) -> &mut Self {
         let v = Vector::from(&direction);
 
-        let new_head = self.head.shift(&v);
-        let new_tail = self.walk_tail(&new_head);
+        self.knots[0] = self.knots[0].shift(&v);
 
-        Self { head: new_head, tail: new_tail }
+        for i in 1 .. self.knots.len() {
+            let original = self.knots[i];
+
+            self.knots[i] = Self::_walk_knot(&self.knots[i], &self.knots[i - 1]);
+            if self.knots[i] == original {
+                break
+            }
+
+        }
+
+        self
     }
 }
 
@@ -85,14 +111,13 @@ impl Simulation {
         Simulation(Vec::new())
     }
 
-    fn run(&self, start: &Rope, observer: &mut dyn Observer) {
-        observer.observe(start);
-        let mut current: Rope = *start;
+    fn run(&self, rope: &mut Rope, observer: &mut dyn Observer) {
+        observer.observe(rope);
 
         for motion in &self.0 {
             for _ in 0 .. motion.count {
-                current = current.walk(motion.dir);
-                observer.observe(&current);
+                rope.walk(motion.dir);
+                observer.observe(rope);
             }
         }
     }
@@ -119,7 +144,7 @@ impl TailObserver {
 
 impl Observer for TailObserver {
     fn observe(&mut self, rope: &Rope) {
-        match self.map.entry(rope.tail) {
+        match self.map.entry(*rope.tail()) {
             Entry::Occupied(mut occupied) => {
                 *occupied.get_mut() += 1;
             }
@@ -146,16 +171,14 @@ fn main() -> IOResult<()> {
     let file = File::open(args.file_name)?;
 
     let simulation = read_simulation(&file).expect("Cannot parse simulation");
+    let mut observer = TailObserver::new();
+    let mut rope = match args.puzzle {
+        Puzzle::P1 => Rope::new(&Point::new(0, 0), 2),
+        Puzzle::P2 => Rope::new(&Point::new(0, 0), 10),
+    };
 
-    match args.puzzle {
-        Puzzle::P1 => {
-            let mut observer = TailObserver::new();
-            simulation.run(&Rope::new(Point::new(0, 0)), &mut observer);
-            println!("{}", observer.result());
-        }
-
-        Puzzle::P2 => todo!(),
-    }
+    simulation.run(&mut rope, &mut observer);
+    println!("{}", observer.result());
 
     Ok(())
 }
@@ -165,24 +188,24 @@ mod tests {
     use super::*;
 
     fn rope(h: (isize, isize), t: (isize, isize)) -> Rope {
-        Rope { head: Point::new(h.0, h.1), tail: Point::new(t.0, t.1) }
+        Rope { knots: vec![Point::new(h.0, h.1), Point::new(t.0, t.1)], }
     }
 
     #[test]
     fn moving() {
         assert_eq!(rope((0, 0), (0, 0)).walk(Direction::North),
-                   rope((0, 1), (0, 0)));
+                   &rope((0, 1), (0, 0)));
         assert_eq!(rope((1, 1), (0, 0)).walk(Direction::North),
-                   rope((1, 2), (1, 1)));
+                   &rope((1, 2), (1, 1)));
         assert_eq!(rope((1, 0), (0, 0)).walk(Direction::East),
-                   rope((2, 0), (1, 0)));
+                   &rope((2, 0), (1, 0)));
         assert_eq!(rope((2, 2), (2, 2)).walk(Direction::West),
-                   rope((1, 2), (2, 2)));
+                   &rope((1, 2), (2, 2)));
         assert_eq!(rope((3, 2), (2, 2)).walk(Direction::West),
-                   rope((2, 2), (2, 2)));
+                   &rope((2, 2), (2, 2)));
     }
 
-    fn example() -> Simulation {
+    fn example_sim() -> Simulation {
         Simulation(vec![
             Motion::new(Direction::East, 4),
             Motion::new(Direction::North, 4),
@@ -198,10 +221,43 @@ mod tests {
     #[test]
     fn example1() {
         let mut observer = TailObserver::new();
-        let start = Rope::new(Point::new(0, 0));
+        let mut start = Rope::new(&Point::new(0, 0), 2);
 
-        example().run(&start, &mut observer);
+        example_sim().run(&mut start, &mut observer);
 
         assert_eq!(observer.result(), 13);
+    }
+
+    #[test]
+    fn example1_10() {
+        let mut observer = TailObserver::new();
+        let mut start = Rope::new(&Point::new(0, 0), 10);
+
+        example_sim().run(&mut start, &mut observer);
+
+        assert_eq!(observer.result(), 1);
+    }
+
+    fn example_sim2() -> Simulation {
+        Simulation(vec![
+            Motion::new(Direction::East, 5),
+            Motion::new(Direction::North, 8),
+            Motion::new(Direction::West, 8),
+            Motion::new(Direction::South, 3),
+            Motion::new(Direction::East, 17),
+            Motion::new(Direction::South, 10),
+            Motion::new(Direction::West, 25),
+            Motion::new(Direction::North, 20),
+        ])
+    }
+
+    #[test]
+    fn example2() {
+        let mut observer = TailObserver::new();
+        let mut start = Rope::new(&Point::new(0, 0), 10);
+
+        example_sim2().run(&mut start, &mut observer);
+
+        assert_eq!(observer.result(), 36);
     }
 }
