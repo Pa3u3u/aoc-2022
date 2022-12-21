@@ -19,18 +19,30 @@ impl Program {
     fn exec(&self) -> SignalIterator<std::slice::Iter<Instruction>> {
         SignalIterator::new(self.0.iter())
     }
+
+    fn draw(&self) {
+        for (cycle, x) in self.exec().enumerate() {
+            let pos = (cycle % 40) as isize;
+            print!("{}", if x - 1 <= pos && pos <= x + 1 { '█' } else { ' ' });
+
+            if cycle % 40 == 39 {
+                println!();
+            }
+        }
+    }
 }
 
 struct SignalIterator<'a, InstrIt: Iterator<Item = &'a Instruction>> {
     x: isize,
     clock: isize,
+    running: bool,
     program: std::iter::Peekable<InstrIt>,
 }
 
 impl<'a, ProgIt> SignalIterator<'a, ProgIt>
         where ProgIt: Iterator<Item = &'a Instruction> {
     fn new(program: ProgIt) -> Self {
-        Self { x: 1, clock: 0, program: program.peekable() }
+        Self { x: 1, clock: 0, running: true, program: program.peekable() }
     }
 
     fn advance(&mut self) {
@@ -67,7 +79,10 @@ impl<'a, ProgIt: Iterator> Iterator for SignalIterator<'a, ProgIt>
     fn next(&mut self) -> Option<Self::Item> {
         let ret = self.x;
         match self.program.peek() {
-            None => (),
+            None => {
+                self.running = false;
+                return None;
+            },
             Some(Instruction::NoOp) => self.advance(),
             Some(Instruction::AddX(_)) if self.clock < 1 => {
                 self.clock += 1;
@@ -117,7 +132,9 @@ fn main() -> IOResult<()> {
             println!("{}", iter.measure(&points).iter().sum::<isize>());
         },
 
-        Puzzle::P2 => todo!(),
+        Puzzle::P2 => {
+            program.draw();
+        }
     }
 
     Ok(())
