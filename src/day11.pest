@@ -1,0 +1,36 @@
+id = { ASCII_DIGIT+ }
+number = { "-"? ~ ASCII_DIGIT+ }
+items = { id ~ ("," ~ id)* }
+
+addition = { "old" ~ "+" ~ number }
+subtraction = { "old" ~ "-" ~ number }
+multiplication = { "old" ~ "*" ~ number }
+power = { "old" ~ "*" ~ "old" }
+
+operation = {
+	"new" ~ "=" ~ (power | addition | subtraction | multiplication)
+}
+
+monkey_id = { "Monkey " ~ id ~ ":" }
+
+test = {
+	"Test:" ~ "divisible" ~ "by" ~ id ~ NEWLINE
+	~ "If true: throw to monkey" ~ id ~ NEWLINE
+	~ "If false: throw to monkey" ~ id
+}
+
+monkey = {
+	monkey_id ~ NEWLINE
+	~ "Starting items:" ~ items ~ NEWLINE
+	~ "Operation:" ~ operation ~ NEWLINE
+	~ test ~ NEWLINE
+}
+
+monkeys = { monkey ~ ( NEWLINE ~ monkey )* }
+monkey_party = {
+	SOI
+	~ monkeys
+	~ EOI
+}
+
+WHITESPACE = _{ " " }
