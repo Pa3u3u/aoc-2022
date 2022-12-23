@@ -56,6 +56,48 @@ struct Monkey {
     inspected: usize,
 }
 
+trait WorryLevelManagement {
+    fn manage(&self, n: WorryLevel) -> WorryLevel;
+}
+
+#[derive(Default)]
+struct DroppingWLM;
+
+impl WorryLevelManagement for DroppingWLM {
+    fn manage(&self, n: WorryLevel) -> WorryLevel {
+        n / 3
+    }
+}
+
+#[derive(Default)]
+struct NoWLM;
+
+impl WorryLevelManagement for NoWLM {
+    fn manage(&self, n: WorryLevel) -> WorryLevel {
+        n
+    }
+}
+
+#[derive(Default)]
+struct LCMWLM {
+    lcm: WorryLevel,
+}
+
+impl LCMWLM {
+    fn new(party: &MonkeyParty) -> Self {
+        let lcm = party.0.iter().map(|mref| mref.borrow().test.divisor)
+            .reduce(num::integer::lcm).expect("Empty Monkey party");
+
+        Self { lcm }
+    }
+}
+
+impl WorryLevelManagement for LCMWLM {
+    fn manage(&self, n: WorryLevel) -> WorryLevel {
+        n % self.lcm
+    }
+}
+
 impl Monkey {
     fn new(items: &[WorryLevel], op: Operation<WorryLevel>, test: MonkeyTest) -> Self {
         let mut deq: VecDeque<WorryLevel> = VecDeque::with_capacity(items.len());
@@ -63,10 +105,10 @@ impl Monkey {
         Self { items: deq, op, test, inspected: 0 }
     }
 
-    fn throw(&mut self) -> Option<(WorryLevel, MonkeyID)> {
+    fn throw<WLM: WorryLevelManagement>(&mut self, wlm: &WLM) -> Option<(WorryLevel, MonkeyID)> {
         let mut item = self.items.pop_front()?;
         self.inspected += 1;
-        item = self.op.eval(&item) / 3;
+        item = wlm.manage(self.op.eval(&item));
         Some((item, self.test.exec(item)))
     }
 
@@ -97,21 +139,21 @@ impl MonkeyParty {
         Ok(())
     }
 
-    fn turn(&self, monkey: &mut Monkey) {
-        while let Some((item, target)) = monkey.throw() {
+    fn turn<WLM: WorryLevelManagement>(&self, monkey: &mut Monkey, wlm: &WLM) {
+        while let Some((item, target)) = monkey.throw::<WLM>(wlm) {
             self.0[target].borrow_mut().receive(item);
         }
     }
 
-    fn round(&mut self) {
+    fn round<WLM: WorryLevelManagement>(&mut self, wlm: &WLM) {
         for (_, mc) in self.0.iter().enumerate() {
-            self.turn(&mut mc.borrow_mut());
+            self.turn(&mut mc.borrow_mut(), wlm);
         }
     }
 
-    fn rounds(&mut self, n: usize) {
+    fn rounds<WLM: WorryLevelManagement>(&mut self, n: usize, wlm: &WLM) {
         for _ in 0 .. n {
-            self.round()
+            self.round(wlm)
         }
     }
 
@@ -228,12 +270,14 @@ fn main() -> Result<(), String> {
 
     match args.puzzle {
         Puzzle::P1 => {
-            mp.rounds(20);
+            mp.rounds(20, &DroppingWLM::default());
             println!("{}", mp.business());
         }
 
         Puzzle::P2 => {
-            todo!()
+            let lcmwlm = LCMWLM::new(&mp);
+            mp.rounds(10000, &lcmwlm);
+            println!("{}", mp.business());
         }
     }
 
