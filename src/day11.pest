@@ -3,12 +3,11 @@ number = { "-"? ~ ASCII_DIGIT+ }
 items = { id ~ ("," ~ id)* }
 
 addition = { "old" ~ "+" ~ number }
-subtraction = { "old" ~ "-" ~ number }
 multiplication = { "old" ~ "*" ~ number }
 power = { "old" ~ "*" ~ "old" }
 
 operation = {
-	"new" ~ "=" ~ (power | addition | subtraction | multiplication)
+	"new" ~ "=" ~ (power | addition | multiplication)
 }
 
 monkey_id = { "Monkey " ~ id ~ ":" }

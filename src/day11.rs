@@ -215,9 +215,6 @@ impl PartyParser {
                         Rule::multiplication => {
                             Operation::Mul(Self::uw_rule2num(&mut inner.into_inner()))
                         }
-                        Rule::subtraction => {
-                            todo!()
-                        }
                         Rule::power => {
                             Operation::Pow
                         }
@@ -269,18 +266,11 @@ fn main() -> Result<(), String> {
     };
 
     match args.puzzle {
-        Puzzle::P1 => {
-            mp.rounds(20, &DroppingWLM::default());
-            println!("{}", mp.business());
-        }
-
-        Puzzle::P2 => {
-            let lcmwlm = LCMWLM::new(&mp);
-            mp.rounds(10000, &lcmwlm);
-            println!("{}", mp.business());
-        }
+        Puzzle::P1 => mp.rounds(20, &DroppingWLM::default()),
+        Puzzle::P2 => mp.rounds(10000, &LCMWLM::new(&mp)),
     }
 
+    println!("{}", mp.business());
     Ok(())
 }
 
