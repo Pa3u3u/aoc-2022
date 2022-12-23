@@ -312,13 +312,13 @@ mod tests {
         assert_eq!(iter.next(), Some(1));
         assert_eq!(iter.next(), Some(4));
         assert_eq!(iter.next(), Some(4));
-        assert_eq!(iter.next(), Some(-1));
+        assert_eq!(iter.next(), None);
     }
 
     #[test]
     fn example2() {
         let data1 = data2();
-        let mut iter = data1.exec();
+        let iter = data1.exec();
         assert_eq!(iter.measure(&(20..=220).step_by(40).collect::<Vec<isize>>()),
             vec![420, 1140, 1800, 2940, 2880, 3960]);
     }
@@ -326,7 +326,7 @@ mod tests {
     #[test]
     fn example2_sum() {
         let data2 = data2();
-        let mut iter = data2.exec();
+        let iter = data2.exec();
         assert_eq!(iter.measure(&(20..=220).step_by(40).collect::<Vec<isize>>()).iter().sum::<isize>(),
             13140);
     }
