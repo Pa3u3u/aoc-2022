@@ -85,3 +85,54 @@ impl From<&Direction> for Vector {
     }
 }
 
+#[derive(Debug)]
+pub struct CoordGenerator {
+    pub dir: Direction,
+    cursor: isize,
+    limit: [isize; 2],
+}
+
+impl CoordGenerator {
+    pub fn new(dir: &Direction, width: usize, height: usize) -> CoordGenerator {
+        Self {
+            dir: *dir,
+            cursor: 0,
+            limit: [width as isize, height as isize],
+        }
+    }
+
+    fn _fx(&self, v: isize, i: usize) -> isize {
+        v % self.limit[i]
+    }
+
+    fn _fy(&self, v: isize, i: usize) -> isize {
+        v / self.limit[i]
+    }
+
+    fn _lim(&self) -> isize {
+        self.limit[0] * self.limit[1]
+    }
+}
+
+impl Iterator for CoordGenerator {
+    type Item = Point;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.cursor >= self._lim() {
+            return None;
+        }
+
+        let cursor = self.cursor;
+        let rev_cursor = self._lim() - cursor - 1;
+        self.cursor += 1;
+
+        let (x, y) = match self.dir {
+            Direction::North => (self._fy(rev_cursor, 1), self._fx(rev_cursor, 1)),
+            Direction::West => (self._fx(rev_cursor, 0), self._fy(rev_cursor, 0)),
+            Direction::South => (self._fy(cursor, 1), self._fx(cursor, 1)),
+            Direction::East => (self._fx(cursor, 0), self._fy(cursor, 0)),
+        };
+
+        Some(Point::new(x, y))
+    }
+}

@@ -1,129 +1,33 @@
 use aoc::args::Puzzle;
-use aoc::euclid::{Direction, DirectionIterator, Point, Vector};
+use aoc::euclid::{CoordGenerator, Direction, DirectionIterator, Point, Vector};
+use aoc::matrix::{Matrix};
 use std::cmp::max;
 use std::collections::BinaryHeap;
 use std::fs::File;
 use std::io::Result as IOResult;
 use std::io::{BufRead, BufReader};
-use std::ops::{Index, IndexMut};
 
-#[derive(Debug)]
-struct CoordGenerator {
-    dir: Direction,
-    cursor: isize,
-    limit: [isize; 2],
-}
-
-impl CoordGenerator {
-    pub fn new(dir: &Direction, width: usize, height: usize) -> CoordGenerator {
-        Self {
-            dir: *dir,
-            cursor: 0,
-            limit: [width as isize, height as isize],
-        }
-    }
-
-    fn _fx(&self, v: isize, i: usize) -> isize {
-        v % self.limit[i]
-    }
-
-    fn _fy(&self, v: isize, i: usize) -> isize {
-        v / self.limit[i]
-    }
-
-    fn _lim(&self) -> isize {
-        self.limit[0] * self.limit[1]
-    }
-}
-
-impl Iterator for CoordGenerator {
-    type Item = Point;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.cursor >= self._lim() {
-            return None;
-        }
-
-        let cursor = self.cursor;
-        let rev_cursor = self._lim() - cursor - 1;
-        self.cursor += 1;
-
-        let (x, y) = match self.dir {
-            Direction::North => (self._fy(rev_cursor, 1), self._fx(rev_cursor, 1)),
-            Direction::West => (self._fx(rev_cursor, 0), self._fy(rev_cursor, 0)),
-            Direction::South => (self._fy(cursor, 1), self._fx(cursor, 1)),
-            Direction::East => (self._fx(cursor, 0), self._fy(cursor, 0)),
-        };
-
-        Some(Point::new(x, y))
-    }
-}
-
-#[derive(Debug)]
-struct Matrix<T: Default + Ord> {
-    width: usize,
-    height: usize,
-    data: Vec<Vec<T>>,
-}
-
-type Map = Matrix<u32>;
-type BitLayer = Matrix<bool>;
-
-impl<T> Matrix<T>
-        where T: Default + Ord {
-    pub fn new(width: usize, height: usize) -> Matrix<T> {
-        let mut data: Vec<Vec<T>> = Vec::with_capacity(height);
-
-        data.resize_with(height, || {
-            let mut vi = Vec::with_capacity(width);
-            vi.resize_with(width, Default::default);
-            vi
-        });
-
-        Self { width, height, data }
-    }
-
-    pub fn fold<F: Fn(&T, &T) -> T>(a: &Self, b: &Self, f: F) -> Self {
-        assert_eq!(a.width, b.width);
-        assert_eq!(a.height, b.height);
-
-        let mut result = Self::new(a.width, a.height);
-        for xy in CoordGenerator::new(&Direction::East, a.width, a.height) {
-            result[xy] = f(&a[xy], &b[xy]);
-        }
-
-        result
-    }
-}
-
-impl<T: Default + Ord> Index<Point> for Matrix<T> {
-    type Output = T;
-
-    fn index(&self, index: Point) -> &Self::Output {
-        &self.data[index.y as usize][index.x as usize]
-    }
-}
-
-impl<T: Default + Ord> IndexMut<Point> for Matrix<T> {
-    fn index_mut(&mut self, index: Point) -> &mut Self::Output {
-        &mut self.data[index.y as usize][index.x as usize]
-    }
-}
+struct Map(Matrix<u32>);
+struct BitLayer(Matrix<bool>);
 
 impl Map {
+    pub fn new(width: usize, height: usize) -> Self {
+        Self(Matrix::new(width, height))
+    }
+
     fn layer(&self, dir: &Direction) -> BitLayer {
-        let mut layer = BitLayer::new(self.width, self.height);
+        let mut layer = BitLayer::new(self.0.width, self.0.height);
         let mut last = Point::new(-1, -1);
         let mut max_elevation = 0;
 
-        for coord in CoordGenerator::new(dir, self.width, self.height) {
+        for coord in CoordGenerator::new(dir, self.0.width, self.0.height) {
             /* If both coords change, we have a different set of points. */
             if coord.x != last.x && coord.y != last.y {
-                layer[coord] = true;
-                max_elevation = self[coord];
+                layer.0[coord] = true;
+                max_elevation = self.0[coord];
             } else {
-                layer[coord] = self[coord] > max_elevation;
-                max_elevation = max(max_elevation, self[coord])
+                layer.0[coord] = self.0[coord] > max_elevation;
+                max_elevation = max(max_elevation, self.0[coord])
             }
 
             last = coord;
@@ -135,15 +39,15 @@ impl Map {
     pub fn elevated_points(&self) -> usize {
         DirectionIterator::new()
             .map(|dir| self.layer(&dir))
-            .fold(BitLayer::new(self.width, self.height),
+            .fold(BitLayer::new(self.0.width, self.0.height),
                     |acc, el| BitLayer::or(&acc, &el))
             .bits(true)
     }
 
     fn is_border(&self, coord: &Point) -> bool {
         coord.x == 0 || coord.y == 0
-            || coord.x + 1 == self.width as isize
-            || coord.y + 1 == self.height as isize
+            || coord.x + 1 == self.0.width as isize
+            || coord.y + 1 == self.0.height as isize
     }
 
     fn scenic_ray(&self, coord: &Point, v: &Vector) -> usize {
@@ -151,11 +55,11 @@ impl Map {
             return 0;
         }
 
-        let elev = self[*coord];
+        let elev = self.0[*coord];
         let mut cursor: Point = *coord;
 
         let mut count: usize = 0;
-        while !self.is_border(&cursor) && (cursor == *coord || self[cursor] < elev) {
+        while !self.is_border(&cursor) && (cursor == *coord || self.0[cursor] < elev) {
             count += 1;
             cursor = cursor.shift(v);
         }
@@ -166,7 +70,8 @@ impl Map {
     fn scenic_scores(&self) -> usize {
         let mut heap: BinaryHeap<usize> = BinaryHeap::new();
 
-        for coord in CoordGenerator::new(&Direction::North, self.width, self.height) {
+        for coord in CoordGenerator::new(
+                &Direction::North, self.0.width, self.0.height) {
             heap.push(
                 DirectionIterator::new()
                     .map(|d| self.scenic_ray(&coord, &Vector::from(&d)))
@@ -183,13 +88,17 @@ impl Map {
 }
 
 impl BitLayer {
+    pub fn new(width: usize, height: usize) -> Self {
+        Self(Matrix::new(width, height))
+    }
+
     pub fn or(a: &Self, b: &Self) -> Self {
-        Self::fold(a, b, |p, q| *p || *q)
+        Self(Matrix::fold(&a.0, &b.0, |p, q| *p || *q))
     }
 
     pub fn bits(&self, b: bool) -> usize {
         let mut counter: usize = 0;
-        for row in &self.data {
+        for row in &self.0.data {
             for cell in row {
                 if *cell == b {
                     counter += 1;
@@ -226,7 +135,7 @@ fn read_map(file: &File) -> Result<Map, String> {
     let mut coord = Point::new(0, 0);
     for row in &lines {
         for c in row.chars() {
-            map[coord] = c.to_digit(10).expect("BUG: Invalid digit found");
+            map.0[coord] = c.to_digit(10).expect("BUG: Invalid digit found");
             coord.x += 1;
         }
 
@@ -281,7 +190,7 @@ mod tests {
     }
 
     fn example_matrix() -> Map {
-        Matrix {
+        Map(Matrix {
             width: 5,
             height: 5,
             data: vec![
@@ -291,7 +200,7 @@ mod tests {
                 vec![3, 3, 5, 4, 9],
                 vec![3, 5, 3, 9, 0],
             ],
-        }
+        })
     }
 
     #[test]
