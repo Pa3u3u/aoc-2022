@@ -227,7 +227,7 @@ impl PartyParser {
                     let div: WorryLevel = Self::uw_rule2num(&mut parts);
                     let ift: MonkeyID = Self::uw_rule2num(&mut parts);
                     let iff: MonkeyID = Self::uw_rule2num(&mut parts);
-                    
+
                     test = MonkeyTest::new(div, ift, iff);
                 }
                 _ => {}
