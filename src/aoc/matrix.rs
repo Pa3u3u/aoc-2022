@@ -22,6 +22,11 @@ impl<T> Matrix<T>
         Self { width, height, data }
     }
 
+    pub fn contains(&self, p: &Point) -> bool {
+        p.x >= 0 && p.x < self.width as isize
+            && p.y >= 0 && p.y < self.height as isize
+    }
+
     pub fn fold<F: Fn(&T, &T) -> T>(a: &Self, b: &Self, f: F) -> Self {
         assert_eq!(a.width, b.width);
         assert_eq!(a.height, b.height);

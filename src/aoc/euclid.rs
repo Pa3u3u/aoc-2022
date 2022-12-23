@@ -43,7 +43,7 @@ impl Iterator for DirectionIterator {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
 pub struct Point {
     pub x: isize,
     pub y: isize,
@@ -82,6 +82,12 @@ impl From<&Direction> for Vector {
             Direction::East => Vector::new(1, 0),
             Direction::West => Vector::new(-1, 0),
         }
+    }
+}
+
+impl From<Direction> for Vector {
+    fn from(d: Direction) -> Vector {
+        Vector::from(&d)
     }
 }
 
