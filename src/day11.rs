@@ -78,6 +78,7 @@ impl WorryLevelManagement for NoWLM {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Default)]
 struct LCMWLM {
     lcm: WorryLevel,
