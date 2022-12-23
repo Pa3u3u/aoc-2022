@@ -289,23 +289,25 @@ mod tests {
 
     #[test]
     fn throws() {
-        let mut example = example();
-        assert_eq!(example.0[0].borrow_mut().throw(), Some((500, 3)));
-        assert_eq!(example.0[0].borrow_mut().throw(), Some((620, 3)));
-        assert_eq!(example.0[0].borrow_mut().throw(), None);
+        let example = example();
+        let wlm = DroppingWLM::default();
 
-        assert_eq!(example.0[1].borrow_mut().throw(), Some((20, 0)));
-        assert_eq!(example.0[1].borrow_mut().throw(), Some((23, 0)));
-        assert_eq!(example.0[1].borrow_mut().throw(), Some((27, 0)));
-        assert_eq!(example.0[1].borrow_mut().throw(), Some((26, 0)));
-        assert_eq!(example.0[1].borrow_mut().throw(), None);
+        assert_eq!(example.0[0].borrow_mut().throw(&wlm), Some((500, 3)));
+        assert_eq!(example.0[0].borrow_mut().throw(&wlm), Some((620, 3)));
+        assert_eq!(example.0[0].borrow_mut().throw(&wlm), None);
+
+        assert_eq!(example.0[1].borrow_mut().throw(&wlm), Some((20, 0)));
+        assert_eq!(example.0[1].borrow_mut().throw(&wlm), Some((23, 0)));
+        assert_eq!(example.0[1].borrow_mut().throw(&wlm), Some((27, 0)));
+        assert_eq!(example.0[1].borrow_mut().throw(&wlm), Some((26, 0)));
+        assert_eq!(example.0[1].borrow_mut().throw(&wlm), None);
     }
 
     #[test]
     fn round() {
         let mut example = example();
 
-        example.round();
+        example.round(&DroppingWLM::default());
 
         assert_eq!(example.0[0].borrow().items, [20, 23, 27, 26]);
         assert_eq!(example.0[1].borrow().items, [2080, 25, 167, 207, 401, 1046]);
@@ -316,7 +318,14 @@ mod tests {
     #[test]
     fn example_business() {
         let mut example = example();
-        example.rounds(20);
+        example.rounds(20, &DroppingWLM::default());
         assert_eq!(example.business(), 10605);
+    }
+
+    #[test]
+    fn example_business2() {
+        let mut example = example();
+        example.rounds(10000, &LCMWLM::new(&example));
+        assert_eq!(example.business(), 2713310158);
     }
 }
