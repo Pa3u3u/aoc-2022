@@ -16,6 +16,13 @@ impl Packet {
             Packet::Value(n) => Packet::List(vec![Packet::Value(*n)]),
         }
     }
+
+    fn dividers() -> [Packet; 2] {
+        [
+            Packet::List(vec![Packet::List(vec![Packet::Value(2)])]),
+            Packet::List(vec![Packet::List(vec![Packet::Value(6)])]),
+        ]
+    }
 }
 
 impl PartialEq for Packet {
@@ -47,18 +54,16 @@ mod packet_parser {
     use super::Packet;
 
     use nom::{
-        IResult, Finish,
         branch::alt,
         character::complete::{char, digit1, space0},
         combinator::map_res,
         multi::separated_list0,
         sequence::{delimited, tuple},
+        Finish, IResult,
     };
 
     fn value(input: &str) -> IResult<&str, Packet> {
-        map_res(digit1,
-                |res: &str| res.parse::<u32>().map(Packet::Value))
-        (input)
+        map_res(digit1, |res: &str| res.parse::<u32>().map(Packet::Value))(input)
     }
 
     fn values(input: &str) -> IResult<&str, Vec<Packet>> {
@@ -73,8 +78,7 @@ mod packet_parser {
     pub fn parse(input: &str) -> Result<Packet, String> {
         match list(input).finish() {
             Ok((rest, packet)) if rest.is_empty() => Ok(packet),
-            Ok((rest, _)) => Err(String::from("Junk trailing chars: ")
-                                 + rest),
+            Ok((rest, _)) => Err(String::from("Junk trailing chars: ") + rest),
             Err(err) => Err(err.to_string()),
         }
     }
@@ -95,7 +99,7 @@ mod packet_parser {
         result
     }
 
-    pub fn pairs(file: &File) -> Result<Vec<(Packet, Packet)>, String> {
+    pub fn read_from_file(file: &File) -> Result<Vec<Packet>, String> {
         let mut packets = Vec::<Packet>::new();
 
         let mut lineno = 0;
@@ -105,7 +109,7 @@ mod packet_parser {
 
             if line.is_empty() {
                 if lineno % 3 != 0 {
-                    return Err(format!("Expected empty line, got {}", line));
+                    return Err(format!("{}: Expected empty line, got {}", lineno, line));
                 }
 
                 continue;
@@ -114,11 +118,7 @@ mod packet_parser {
             packets.push(line.parse::<Packet>()?);
         }
 
-        if packets.len() % 2 != 0 {
-            return Err(String::from("Uneven count of packets"));
-        }
-
-        Ok(convert_to_pairs(packets))
+        Ok(packets)
     }
 }
 
@@ -130,7 +130,9 @@ impl FromStr for Packet {
     }
 }
 
-fn filter_correct(pairs: &'_ [(Packet, Packet)]) -> impl Iterator<Item = (usize, &(Packet, Packet))> + '_ {
+fn filter_correct(
+    pairs: &'_ [(Packet, Packet)]
+) -> impl Iterator<Item = (usize, &(Packet, Packet))> + '_ {
     pairs.iter().enumerate()
         .filter(|(_, (p1, p2))| p1 < p2)
         .map(|(i, v)| (i + 1, v))
@@ -140,16 +142,31 @@ fn correct_indices(pairs: &'_ [(Packet, Packet)]) -> impl Iterator<Item = usize>
     filter_correct(pairs).map(|(i, _)| i)
 }
 
+fn decoder_key(mut packets: Vec<Packet>) -> usize {
+    packets.extend(Packet::dividers());
+    packets.sort();
+
+    let div2 = packets.binary_search(&Packet::dividers()[0])
+        .expect("Divider [[2]] not found");
+    let div6 = packets.binary_search(&Packet::dividers()[1])
+        .expect("Divider [[6]] not found");
+
+    (div2 + 1) * (div6 + 1)
+}
+
 fn main() -> Result<(), String> {
     let args = aoc::args::Arguments::parse();
     let file = File::open(args.file_name).expect("Cannot open file");
 
-    let pairs = packet_parser::pairs(&file)?;
+    let packets = packet_parser::read_from_file(&file)?;
 
-    match args.puzzle {
-        Puzzle::P1 => println!("{}", correct_indices(&pairs).sum::<usize>()),
-        Puzzle::P2 => todo!(),
-    }
+    println!("{}", match args.puzzle {
+        Puzzle::P1 => {
+            let pairs = packet_parser::convert_to_pairs(packets);
+            correct_indices(&pairs).sum::<usize>()
+        }
+        Puzzle::P2 => decoder_key(packets),
+    });
 
     Ok(())
 }
@@ -202,7 +219,6 @@ mod tests {
         assert!(examples[4] > examples[5]);
         assert!(examples[6] < examples[7]);
         assert!(examples[8] > examples[9]);
-        assert!(examples[10] < examples[11]);
         assert!(examples[12] > examples[13]);
         assert!(examples[14] > examples[15]);
     }
@@ -214,5 +230,10 @@ mod tests {
         let sum = correct_indices(&examples).sum::<usize>();
 
         assert_eq!(sum, 13);
+    }
+
+    #[test]
+    fn example2() {
+        assert_eq!(decoder_key(examples()), 140);
     }
 }
