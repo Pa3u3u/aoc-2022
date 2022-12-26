@@ -70,6 +70,17 @@ mod scan {
     pub struct Scan(pub Vec<PathSegment>);
 
     impl Scan {
+        pub fn new_from_file(file: &File) -> Result<Scan, String> {
+            let mut paths = Vec::<PathSegment>::new();
+            let mut lines = BufReader::new(file).lines();
+
+            while let Some(line) = aoc::io::read_line(&mut lines) {
+                paths.push(line.parse::<PathSegment>()?);
+            }
+
+            Ok(Scan(paths))
+        }
+
         pub fn size(&self) -> Point {
             use std::cmp::max;
 
@@ -79,15 +90,12 @@ mod scan {
             )
         }
 
-        pub fn read_from_file(file: &File) -> Result<Scan, String> {
-            let mut paths = Vec::<PathSegment>::new();
-            let mut lines = BufReader::new(file).lines();
-
-            while let Some(line) = aoc::io::read_line(&mut lines) {
-                paths.push(line.parse::<PathSegment>()?);
-            }
-
-            Ok(Scan(paths))
+        pub fn add_floor(&mut self, source: &Point) {
+            let floor_y = self.size().y + 2;
+            self.0.push(PathSegment(vec![
+                Point::new(source.x - (floor_y + 10), floor_y),
+                Point::new(source.x + (floor_y + 10), floor_y),
+            ]));
         }
     }
 }
@@ -140,8 +148,9 @@ mod map {
             Self(map)
         }
 
+        #[allow(dead_code)]
         pub fn new_from_file(file: &File) -> Result<Map, String> {
-            Ok(Self::new_from_scan(&super::scan::Scan::read_from_file(file)?))
+            Ok(Self::new_from_scan(&super::scan::Scan::new_from_file(file)?))
         }
 
         #[allow(dead_code)]
@@ -193,13 +202,9 @@ mod map {
         }
 
         pub fn fill(&mut self, from: &Point) -> usize {
-            let mut counter = 0;
-
-            while self.drop_sand(from).is_ok() {
-                counter += 1;
-            }
-
-            counter
+            std::iter::repeat_with(|| self.drop_sand(from))
+                .take_while(|r| r.is_ok())
+                .count()
         }
     }
 }
@@ -207,18 +212,22 @@ mod map {
 use aoc::args::Puzzle;
 use aoc::euclid::Point;
 use map::Map;
+use scan::Scan;
 use std::fs::File;
 
 fn main() -> Result<(), String> {
     let args = aoc::args::Arguments::parse();
     let file = File::open(args.file_name).expect("Cannot open file");
 
-    let mut map = Map::new_from_file(&file)?;
+    let source = Point::new(500, 0);
+    let mut scan = Scan::new_from_file(&file)?;
 
-    println!("{}", match args.puzzle {
-        Puzzle::P1 => map.fill(&Point::new(500, 0)),
-        Puzzle::P2 => todo!(),
-    });
+    if args.puzzle == Puzzle::P2 {
+        scan.add_floor(&source);
+    }
+
+    let mut map = Map::new_from_scan(&scan);
+    println!("{}", map.fill(&source));
 
     Ok(())
 }
@@ -248,5 +257,15 @@ mod tests {
     fn example1() {
         let mut map = map::Map::new_from_scan(&example_scan());
         assert_eq!(map.fill(&Point::new(500, 0)), 24);
+    }
+
+    #[test]
+    fn example2() {
+        let source = Point::new(500, 0);
+        let mut scan = example_scan();
+        scan.add_floor(&source);
+
+        let mut map = map::Map::new_from_scan(&scan);
+        assert_eq!(map.fill(&source), 93);
     }
 }

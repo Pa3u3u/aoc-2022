@@ -19,7 +19,7 @@ pub struct Arguments {
     pub file_name: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Puzzle {
     P1,
     P2,
