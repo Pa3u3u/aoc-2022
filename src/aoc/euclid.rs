@@ -66,6 +66,15 @@ impl Point where {
     pub fn distance_from(&self, other: &Self) -> f64 {
         (((self.x - other.x).pow(2) + (self.y - other.y).pow(2)) as f64).sqrt()
     }
+
+    pub fn direction(&self, other: &Self) -> Vector {
+        use num::signum;
+
+        Vector::new(
+            signum(other.x - self.x),
+            signum(other.y - self.y),
+        )
+    }
 }
 
 impl PartialEq<(isize, isize)> for Point {
