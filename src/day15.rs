@@ -35,6 +35,22 @@ mod sensor {
                 max: std::cmp::max(self.max, other.max),
             }
         }
+
+        pub fn punch(&self, other: &Self) -> (Option<Self>, Option<Self>) {
+            let left = if self.min < other.min {
+                Some(Range::new(self.min, other.min - 1))
+            } else {
+                None
+            };
+
+            let right = if self.max > other.max {
+                Some(Range::new(other.max + 1, self.max))
+            } else {
+                None
+            };
+
+            (left, right)
+        }
     }
 
     impl From<&(isize, isize)> for Range {
@@ -96,10 +112,6 @@ mod sensor {
             Self { position, beacon, range: range as usize }
         }
 
-        pub fn area(&self) -> usize {
-            2 * self.range * (self.range + 1) + 1
-        }
-
         pub fn cut<AP>(&self, pos: isize) -> Option<Range>
                 where AP: AxisProjection {
             let center = AP::axis(&self.position);
@@ -115,15 +127,18 @@ mod sensor {
             }
         }
 
+        #[allow(dead_code)]
         pub fn range<AP>(&self) -> Range
                 where AP: AxisProjection {
             self.cut::<AP>(AP::transposed(&self.position)).unwrap()
         }
 
+        #[allow(dead_code)]
         pub fn distance(&self, point: &Point) -> usize {
             ((self.position.x - point.x).abs() + (self.position.y - point.y).abs()) as usize
         }
 
+        #[allow(dead_code)]
         pub fn contains(&self, point: &Point) -> bool {
             self.distance(point) <= self.range
         }
@@ -133,10 +148,6 @@ mod sensor {
     pub struct Scan(pub Vec<Sensor>);
 
     impl Scan {
-        pub fn new() -> Self {
-            Self::default()
-        }
-
         pub fn new_from_file(file: File) -> Self {
             let mut sensors = Vec::<Sensor>::new();
 
@@ -176,10 +187,51 @@ mod sensor {
             self.cut::<AP>(position).len() - self.beacons::<AP>(position)
         }
 
-        fn range<AP>(&self) -> Option<Range>
-                where AP: AxisProjection {
-            self.0.iter().map(|s| s.range::<AP>())
-                .reduce(|a, b| Range::new(std::cmp::min(a.min, b.min), std::cmp::max(a.max, b.max)))
+        fn find_beacons(&self, xr: &Range, yr: &Range) -> Vec<Point> {
+            let mut builder = SparseRangeBuilder::new();
+
+            println!("Searching for candidate x axis");
+            for y in core::ops::RangeInclusive::from(yr) {
+                if y % 100_000 == 0 {
+                    println!("  {:3} %", (100 * (y - yr.min)) / yr.len() as isize);
+                }
+
+                for range in self.cut::<XAxis>(y).holes_in_range(xr).0 {
+                    builder.add(&range);
+                }
+            }
+
+            let mut points = Vec::<Point>::new();
+            let ranges = builder.build();
+
+            println!("Found {} candidate ranges", ranges.0.len());
+            println!("  Range size {}", ranges.len());
+
+            for candidate_x_range in ranges.0 {
+                for x in core::ops::RangeInclusive::from(&candidate_x_range) {
+                    for range in self.cut::<YAxis>(x).holes_in_range(yr).0 {
+                        for y in core::ops::RangeInclusive::from(&range) {
+                            println!("  Found point [{}, {}]", x, y);
+                            points.push((x, y).into());
+                        }
+                    }
+                }
+            }
+
+            points
+        }
+
+        pub fn tuning_frequency(&self, area: &Range) -> Result<isize, String> {
+            let beacons = self.find_beacons(area, area);
+            let count = beacons.len();
+
+            if count == 0 {
+                Err("No beacon found".into())
+            } else if count > 1 {
+                Err(format!("{} beacons found", count))
+            } else {
+                Ok(beacons[0].x * 4_000_000 + beacons[0].y)
+            }
         }
     }
 
@@ -188,11 +240,35 @@ mod sensor {
         use std::collections::BTreeSet;
 
         #[derive(Debug)]
-        pub struct SparseRange(Vec<Range>);
+        pub struct SparseRange(pub Vec<Range>);
 
         impl SparseRange {
             pub fn len(&self) -> usize {
                 self.0.iter().map(Range::len).sum::<usize>()
+            }
+
+            pub fn holes_in_range(&self, range: &Range) -> Self {
+                let mut result = Vec::<Range>::new();
+                let mut shard = *range;
+
+                for filled in &self.0 {
+                    if !filled.overlaps(&shard) {
+                        continue;
+                    }
+
+                    let (left, right) = shard.punch(filled);
+                    if let Some(left) = left {
+                        result.push(left);
+                    }
+
+                    if let Some(right) = right {
+                        shard = right;
+                    } else {
+                        break;
+                    }
+                }
+
+                Self(result)
             }
         }
 
@@ -278,8 +354,8 @@ fn main() -> Result<(), String> {
     let scan = sensor::Scan::new_from_file(file);
 
     println!("{}", match args.puzzle {
-        Puzzle::P1 => scan.tiles_without_beacons::<sensor::XAxis>(2000000),
-        Puzzle::P2 => todo!(),
+        Puzzle::P1 => scan.tiles_without_beacons::<sensor::XAxis>(2_000_000) as isize,
+        Puzzle::P2 => scan.tuning_frequency(&(0, 4_000_000).into())?,
     });
 
     Ok(())
@@ -328,10 +404,12 @@ mod tests {
     #[test]
     fn example1() {
         let scan = example_scan();
-
-        scan.draw();
-        dbg!(scan.cut::<XAxis>(10));
-        dbg!(scan.beacons::<XAxis>(10));
         assert_eq!(scan.tiles_without_beacons::<XAxis>(10), 26);
+    }
+
+    #[test]
+    fn example2() {
+        let scan = example_scan();
+        assert_eq!(scan.tuning_frequency(&(0, 20).into()), Ok(56000011));
     }
 }
