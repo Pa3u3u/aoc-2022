@@ -77,6 +77,18 @@ impl Point where {
     }
 }
 
+impl From<&(isize, isize)> for Point {
+    fn from(p: &(isize, isize)) -> Self {
+        Self::new(p.0, p.1)
+    }
+}
+
+impl From<(isize, isize)> for Point {
+    fn from(p: (isize, isize)) -> Self {
+        Point::from(&p)
+    }
+}
+
 impl PartialEq<(isize, isize)> for Point {
     fn eq(&self, other: &(isize, isize)) -> bool {
         self.x == other.0 && self.y == other.1
@@ -84,12 +96,12 @@ impl PartialEq<(isize, isize)> for Point {
 }
 
 impl From<&Direction> for Vector {
-    fn from(d: &Direction) -> Vector {
+    fn from(d: &Direction) -> Self {
         match d {
-            Direction::North => Vector::new(0, 1),
-            Direction::South => Vector::new(0, -1),
-            Direction::East => Vector::new(1, 0),
-            Direction::West => Vector::new(-1, 0),
+            Direction::North => Self::new(0, 1),
+            Direction::South => Self::new(0, -1),
+            Direction::East => Self::new(1, 0),
+            Direction::West => Self::new(-1, 0),
         }
     }
 }
